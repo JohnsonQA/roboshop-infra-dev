@@ -1,5 +1,4 @@
 module "vpc" {
-    #source = "../terraform-vpc-module"
     source = "git::https://github.com/JohnsonQA/terraform-vpc-module.git?ref=main"    //to get the mpodule directly from git
     project = var.project
     environment = var.environment
