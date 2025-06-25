@@ -14,14 +14,6 @@ variable "frontend_sg_description"{
     default = "created secuirty group for frontend env"
 }
 
-variable "bastion_sg_name"{
-    default = "bastion"
-}
-
-variable "bastion_sg_description"{
-    default = "created secuirty group for bastion env"
-}
-
 
 
 
