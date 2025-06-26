@@ -22,6 +22,14 @@ variable "bastion_sg_description"{
     default = "created secuirty group for bastion env"
 }
 
+variable "vpn_sg_name"{
+    default = "vpn"
+}
+
+variable "vpn_sg_description"{
+    default = "created secuirty group for vpn"
+}
+
 
 
 
