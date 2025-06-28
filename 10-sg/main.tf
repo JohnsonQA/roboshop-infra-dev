@@ -91,3 +91,13 @@ resource "aws_security_group_rule" "vpn_943" {
   cidr_blocks = ["0.0.0.0/0"]
   security_group_id = module.vpn.sg_id
 }
+
+# backend ALB accepting connections from VPN on port no 80
+resource "aws_security_group_rule" "backend_alb_vpn" {
+  type              = "ingress"
+  from_port         = 80                    # allwoing htpp to connect private backend applications     
+  to_port           = 80
+  protocol          = "tcp"
+  source_security_group_id = module.vpn.sg_id     #VPN sg id attaching to backend -alb sg. so that if vpn ip changes it won't effect to connect application thru LB
+  security_group_id = module.backend_alb.sg_id         #Allowing port 80 to ALB.This is Destination sg id for which we are allowing port
+}
