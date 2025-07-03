@@ -21,3 +21,13 @@ resource "aws_instance" "vpn"{
     }
   )
 }
+
+#Create R53 for VPN to re-use the host again without updating IP
+resource "aws_route53_record" "vpn" {
+  zone_id = var.zone_id
+  name    = "vpn-${var.environment}.${var.zone_name}"
+  type    = "A"
+  ttl     = 1
+  records = [aws_instance.vpn.public_ip]
+  allow_overwrite = true
+}

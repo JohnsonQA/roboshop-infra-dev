@@ -78,6 +78,17 @@ module "rabbitmq" {
     vpc_id = local.vpc_id
 }
 
+module "catalogue" {
+    #source = "../../terraform-aws-securitygroup"
+    source = "git::https://github.com/daws-84s/terraform-aws-securitygroup.git?ref=main"
+    project = var.project
+    environment = var.environment
+
+    sg_name = "catalogue"
+    sg_description = "for catalogue"
+    vpc_id = local.vpc_id
+}
+
 # bastion accepting connections from my laptop
 resource "aws_security_group_rule" "bastion_laptop" {
   type              = "ingress"
@@ -145,6 +156,7 @@ resource "aws_security_group_rule" "backend_alb_vpn" {
   security_group_id = module.backend_alb.sg_id         #Allowing port 80 to ALB.This is Destination sg id for which we are allowing port
 }
 
+#Mongodb accepting connection from VPN on ports 22, 27017
 resource "aws_security_group_rule" "mongodb_vpn_ssh" {
   count = length(var.mongodb_ports_vpn)
   type              = "ingress"
@@ -175,7 +187,7 @@ resource "aws_security_group_rule" "mysql_vpn_ssh" {
   security_group_id = module.mysql.sg_id
 }
 
-# opened as part of some jira-1234 from db team
+# Rabbitmq accepting connection from VPN on Port 22
 resource "aws_security_group_rule" "rabbitmq_vpn_ssh" {
   count = length(var.rabbitmq_ports_vpn)
   type              = "ingress"
@@ -185,3 +197,54 @@ resource "aws_security_group_rule" "rabbitmq_vpn_ssh" {
   source_security_group_id = module.vpn.sg_id
   security_group_id = module.rabbitmq.sg_id
 }
+
+# Catalogue to allow connections from backend alb on port 8080
+resource "aws_security_group_rule" "catalogue_backend_alb" {
+  type              = "ingress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  source_security_group_id = module.backend_alb.sg_id
+  security_group_id = module.catalogue.sg_id
+}
+
+#It's a direct connect from VPN to access catalogue services
+resource "aws_security_group_rule" "catalogue_vpn_ssh" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  source_security_group_id = module.vpn.sg_id
+  security_group_id = module.catalogue.sg_id
+}
+
+# From browser to access catalogues thur VPN on port 8080
+resource "aws_security_group_rule" "catalogue_vpn_http" {
+  type              = "ingress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  source_security_group_id = module.vpn.sg_id
+  security_group_id = module.catalogue.sg_id
+}
+
+resource "aws_security_group_rule" "catalogue_bastion" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  source_security_group_id = module.bastion.sg_id
+  security_group_id = module.catalogue.sg_id
+}
+
+#Mongodb to allow connection from catalogues as there is a dependendancy to load products data.
+#Check the roboshp documentation or catalogue role for more info
+resource "aws_security_group_rule" "mongodb_catalogue" {
+  type              = "ingress"
+  from_port         = 27017
+  to_port           = 27017
+  protocol          = "tcp"
+  source_security_group_id = module.catalogue.sg_id
+  security_group_id = module.mongodb.sg_id
+}
+
