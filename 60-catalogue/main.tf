@@ -2,10 +2,10 @@
 
 resource "aws_lb_target_group" "catalogue" {
   name     = "${var.project}-${var.environment}-catalogue" #roboshop-dev-catalogue
-  port     = 8080
+  port     = 8080                                       #Catalogue listens on port 8080. so is TG
   protocol = "HTTP"
   vpc_id   = local.vpc_id
-  deregistration_delay = 120
+  deregistration_delay = 120                # Before deleting/de-register the instances from TG, it will wait for 120 sec
   health_check {
     healthy_threshold = 2     #2 success it means healthy
     interval = 5              # every 5 secs should check the health of catalogue instance
