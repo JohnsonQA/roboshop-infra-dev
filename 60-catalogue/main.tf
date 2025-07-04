@@ -92,3 +92,121 @@ resource "terraform_data" "catalogue_delete" {
 
   depends_on = [aws_ami_from_instance.catalogue]     #Once ami is feteched ony then delete the instance
 }
+
+# Launch Template
+resource "aws_launch_template" "catalogue" {
+  name = "${var.project}-${var.environment}-catalogue"
+  image_id = aws_ami_from_instance.catalogue.id          #AMI ID of catalogue
+  instance_initiated_shutdown_behavior = "terminate"     #It should be terminated once get the AMI ID 
+  instance_type = "t3.micro"
+  vpc_security_group_ids = [local.catalogue_sg_id]        # SG id of catalogue
+  update_default_version = true # each time you update, new version will become default
+  tag_specifications {
+    resource_type = "instance"
+    # EC2 tags created by ASG
+    tags = merge(
+      local.common_tags,
+      {
+        Name = "${var.project}-${var.environment}-catalogue"
+      }
+    )
+  }
+
+  # volume tags created by ASG
+  tag_specifications {
+    resource_type = "volume"
+
+    tags = merge(
+      local.common_tags,
+      {
+        Name = "${var.project}-${var.environment}-catalogue"
+      }
+    )
+  }
+
+  # launch template tags
+  tags = merge(
+      local.common_tags,
+      {
+        Name = "${var.project}-${var.environment}-catalogue"
+      }
+  )
+
+}
+
+#Auto Sacling Creation
+resource "aws_autoscaling_group" "catalogue" {
+  name                 = "${var.project}-${var.environment}-catalogue"
+  desired_capacity   = 1                                      #How many instances we want to launch
+  max_size           = 10                                     #Max instances to scale up and scale down
+  min_size           = 1                                      #Min instance
+  target_group_arns = [aws_lb_target_group.catalogue.arn]     #To which target group we need to attach
+  vpc_zone_identifier  = local.private_subnet_ids             #In how many zones we should have instances. 
+  health_check_grace_period = 90                             #within how many secs health check should start
+  health_check_type         = "ELB"                          #Should be done by ALB
+
+  launch_template {
+    id      = aws_launch_template.catalogue.id              #Launch Temp ID
+    version = aws_launch_template.catalogue.latest_version   #Latest Version as everytime AMI ID changes 
+  }
+
+  dynamic "tag" {
+    for_each = merge(
+      local.common_tags,
+      {
+        Name = "${var.project}-${var.environment}-catalogue"
+      }
+    )
+    content{
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
+    
+  }
+
+  #When any changes done in AMI or ASG launch template, instances would be auto refreshed based on rolling strategy it means it replaces gradually not all at once. 
+  #Means one or more instances will be terminated and replaced at a time
+  instance_refresh {
+    strategy = "Rolling" 
+    preferences {
+      min_healthy_percentage = 50     #During Refresh atleast 50% of instances must be healthy
+    }
+    triggers = ["launch_template"]     #Based on launch template updates or changes instance trigger the instance refresh
+  }
+
+  timeouts{
+    delete = "15m"                     #It deletes the instance within 15mins 
+  }
+}
+
+#Auto Scaling Policy
+resource "aws_autoscaling_policy" "catalogue" {
+  name                   = "${var.project}-${var.environment}-catalogue"
+  autoscaling_group_name = aws_autoscaling_group.catalogue.name
+  policy_type            = "TargetTrackingScaling"
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+
+    target_value = 75.0
+  }
+}
+
+#ALB Listener Rule for Catalogue Service
+resource "aws_lb_listener_rule" "catalogue" {
+  listener_arn = local.backend_alb_listener_arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.catalogue.arn  # Forwarsd to Catalogue TG
+  }
+
+  condition {
+    host_header {
+      values = ["catalogue.backend-${var.environment}.${var.zone_name}"]    #When hits tis url then proceed it to TG
+    }
+  }
+}

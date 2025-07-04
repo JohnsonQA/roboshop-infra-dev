@@ -219,7 +219,7 @@ resource "aws_security_group_rule" "mysql_shipping" {
 
 #RabbitMQ
 # Rabbitmq accepting connection from VPN on Port 22
-resource "aws_security_group_rule" "rabbitmq_vpn_ssh" {
+resource "aws_security_group_rule" "rabbitmq_vpn" {
   count = length(var.rabbitmq_ports_vpn)
   type              = "ingress"
   from_port         = var.rabbitmq_ports_vpn[count.index]
