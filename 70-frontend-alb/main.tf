@@ -38,7 +38,7 @@ resource "aws_lb_listener" "frontend_alb" {
 #Creating R53 record and attaching the alb DNS 
 resource "aws_route53_record" "frontend_alb" {
   zone_id = var.zone_id
-  name    = "*.${var.zone_name}"   #*.roboshop.space
+  name    = "${var.environment}.${var.zone_name}"   #dev.roboshop.space
   type    = "A"
 
   alias {
