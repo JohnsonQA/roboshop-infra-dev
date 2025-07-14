@@ -1,23 +1,27 @@
+#Origin block defines the source where cloudFront fetches content from
+
+
 resource "aws_cloudfront_distribution" "roboshop" {
   origin {
-    domain_name = "cdn.${var.zone_name}"
+    domain_name = "cdn.${var.zone_name}"   
     custom_origin_config  {
         http_port              = 80 // Required to be set but not used
         https_port             = 443
-        origin_protocol_policy = "https-only"
-        origin_ssl_protocols   = ["TLSv1.2"]
+        origin_protocol_policy = "https-only"    #It talks to origin via https only
+        origin_ssl_protocols   = ["TLSv1.2"]     #CDN communicates with origin with these supported TLS versions
     }
     origin_id                = "cdn.${var.zone_name}"
   }
 
-  enabled             = true
+  enabled             = true    #without this CDN won't deploy
 
   aliases = ["cdn.roboshop.space"]
 
+  #Fall back rule or routing to default cache behaviour
   default_cache_behavior {
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "cdn.${var.zone_name}"
+    cached_methods   = ["GET", "HEAD"]        #Only cache get requests from these methods
+    target_origin_id = "cdn.${var.zone_name}"   
 
     viewer_protocol_policy = "https-only"
     cache_policy_id  = data.aws_cloudfront_cache_policy.cacheDisable.id
@@ -34,13 +38,14 @@ resource "aws_cloudfront_distribution" "roboshop" {
     cache_policy_id  = data.aws_cloudfront_cache_policy.cacheEnable.id
   }
 
-
+  #It limits the edge locations cdn should use _200 = Asia + Middle east, _100 only US, canada, europe
   price_class = "PriceClass_200"
 
+  #It controls who can access your CDN content
   restrictions {
     geo_restriction {
       restriction_type = "whitelist"
-      locations        = ["US", "CA", "GB", "DE"]
+      locations        = ["US", "CA", "GB", "DE"]  #Allowing from only these countries
     }
   }
 
@@ -52,7 +57,7 @@ resource "aws_cloudfront_distribution" "roboshop" {
 
   viewer_certificate {
     acm_certificate_arn = local.acm_certificate_arn
-    ssl_support_method = "sni-only"
+    ssl_support_method = "sni-only"  #Use Server Name Indication (SNI) — allows multiple SSL certs on one IP. It's cheaper than dedicated IP.
   }
 }
 
